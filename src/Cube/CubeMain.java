@@ -2,6 +2,10 @@ package Cube;
 
 import LineBase.LineBase;
 import LineBase.Lines;
+import Utilities.CurveBase;
+import Utilities.CurveBase.Point3D;
+import Utilities.Bezier;
+import Utilities.Hermite;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -109,7 +113,24 @@ public class CubeMain {
         return new double[][] {{Math.cos(angle),-Math.sin(angle),0.0,0.0},{Math.sin(angle),Math.cos(angle),0.0,0.0}, {0.0,0.0,1.0,0.0}, {0.0,0.0,0.0,1.0}};
     }
 
-    public static double[][] ArbitraryAxisRotation(int angle, )
+    //public static double[][] ArbitraryAxisRotation(int angle, )
+
+    public static double vectorMag(int x, int y, int z)
+    {
+        return Math.sqrt(Math.pow((double)x,2) + Math.pow((double)y,2) + Math.pow((double)z,2));
+    }
+
+//    public static double[][] rotation(Point3D fixedPoint, Point3D axis0, Point3D axis1, double angle)
+//    {
+//        //double alphaX =
+//    }
+    public static Point3D crossProduct(Point3D point1, Point3D point2, Point3D fixedPoint)
+    {
+        Point3D a = new Point3D(point1.X - fixedPoint.X, point1.Y - fixedPoint.Y, point1.Z - fixedPoint.Z);
+        Point3D b = new Point3D(point2.X - fixedPoint.X, point2.Y - fixedPoint.Y, point2.Z - fixedPoint.Z);
+
+        return new Point3D((a.Y*b.Z) -(a.Z*b.Y),(a.Z*b.X)-(a.X*b.Z),(a.X*b.Y)-(a.Y*b.X));
+    }
 
 
     public static void main(String [] args) throws FileNotFoundException
