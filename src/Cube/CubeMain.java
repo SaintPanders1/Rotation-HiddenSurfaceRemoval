@@ -163,7 +163,17 @@ public class CubeMain {
         }
         line = scan.nextLine();;
         int numFaces = Integer.parseInt(line.split(" ")[1]);
-        Integer[][] faces = new Integer[numFaces][];
+        Integer[][] faces = new Integer[5][numFaces];
+        for(int i = 0; i <numFaces; i++ )
+        {
+            line = scan.nextLine();
+            String[] corners = line.split(", ");
+            faces[0][i] = Integer.parseInt(corners[1]);
+            faces[1][i] = Integer.parseInt(corners[2]);
+            faces[2][i] = Integer.parseInt(corners[3]);
+            faces[3][i] = Integer.parseInt(corners[4]);
+            faces[4][i] = Integer.parseInt(corners[5]);
+        }
 
 //        for(int i = 0; i < edges.length; i++)
 //        {
