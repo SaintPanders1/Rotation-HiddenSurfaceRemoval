@@ -6,9 +6,11 @@ import Utilities.CurveBase;
 import Utilities.CurveBase.Point3D;
 import Utilities.Bezier;
 import Utilities.Hermite;
+import Utilities.ImageUtilities;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Scanner;
 
@@ -115,36 +117,119 @@ public class CubeMain {
 
     //public static double[][] ArbitraryAxisRotation(int angle, )
 
-    public static double vectorMag(int x, int y, int z)
+    public static double vectorMag(double x, double y, double z)
     {
-        return Math.sqrt(Math.pow((double)x,2) + Math.pow((double)y,2) + Math.pow((double)z,2));
+        return Math.sqrt(Math.pow(x,2) + Math.pow(y,2) + Math.pow(z,2));
     }
 
-//    public static double[][] rotation(Point3D fixedPoint, Point3D axis0, Point3D axis1, double angle)
-//    {
-//        //double alphaX =
-//    }
+    public static double[][] rotation(double[][] masterMatrix, Point3D angle, double angleDegrees)
+    {
+        Point3D centroid = new Point3D(masterMatrix[0][masterMatrix[0].length-1],masterMatrix[1][masterMatrix[1].length-1],masterMatrix[2][masterMatrix[2].length-1]);
+        Point3D alpha = new Point3D(angle.X / vectorMag(angle.X,angle.Y,angle.Z), angle.Y / vectorMag(angle.X,angle.Y,angle.Z), angle.Z / vectorMag(angle.X,angle.Y,angle.Z));
+        double[][] translateCenter = translate(-centroid.X, -centroid.Y, -centroid.Z);
+        double d = Math.sqrt(Math.pow(alpha.Y,2) + Math.pow(alpha.Z,2));
+        double[][] Rx = {
+                {1.0, 0, 0, 0},
+                {0, alpha.Z / d, -alpha.Y / d, 0},
+                {0, alpha.Y / d, alpha.Z / d, 0},
+                {0, 0, 0, 1}};
+        double[][] Ry = {
+                {d, 0, -alpha.X, 0},
+                {0, 1, 0, 0},
+                {alpha.X, 0, d, 0},
+                {0, 0, 0, 1}};
+        double[][] notRx = {{1.0, 0, 0, 0},
+                {0, alpha.Z / d, alpha.Y / d, 0},
+                {0, -alpha.Y / d, alpha.Z / d, 0},
+                {0, 0, 0, 1}};
+        double[][] notRy = {
+                {d, 0, alpha.X, 0},
+                {0, 1, 0, 0},
+                {-alpha.X, 0, d, 0},
+                {0, 0, 0, 1}};
+        double[][] translateCenterBack = translate(centroid.X, centroid.Y, centroid.Z);
+        double[][] FinalAugmentMatrix = WinogradMethod(translateCenterBack,
+                WinogradMethod(notRx,
+                        WinogradMethod(notRy,
+                                WinogradMethod(rotateZ(angleDegrees),
+                                        WinogradMethod(Ry,
+                                                WinogradMethod(Rx,translateCenter))))));
+        return WinogradMethod(FinalAugmentMatrix, masterMatrix);
+    }
+    public static Point3D VectorSubtraction(Point3D point1, Point3D point2)
+    {
+        return new Point3D(point1.X-point2.X,point1.Y-point2.Y,point1.Z-point2.Z );
+    }
+
     public static Point3D crossProduct(Point3D point1, Point3D point2, Point3D fixedPoint)
     {
         Point3D a = new Point3D(point1.X - fixedPoint.X, point1.Y - fixedPoint.Y, point1.Z - fixedPoint.Z);
         Point3D b = new Point3D(point2.X - fixedPoint.X, point2.Y - fixedPoint.Y, point2.Z - fixedPoint.Z);
 
-        return new Point3D((a.Y*b.Z) -(a.Z*b.Y),(a.Z*b.X)-(a.X*b.Z),(a.X*b.Y)-(a.Y*b.X));
+        return new Point3D((a.Y*b.Z) - (a.Z*b.Y),(a.Z*b.X) - (a.X*b.Z),(a.X*b.Y) - (a.Y*b.X));
     }
 
-
-    public static void main(String [] args) throws FileNotFoundException
+    public static double dotProduct(Point3D vector1, Point3D vector2, Point3D anchor1, Point3D anchor2)
     {
+        vector1 = VectorSubtraction(vector1,anchor1);
+        vector2 = VectorSubtraction(vector2,anchor2);
 
-        File file = new File("C:\\Users\\andre\\IdeaProjects\\AffineTransformations\\src\\Cube\\cube.txt");
+        return (vector1.X*vector2.X)+(vector1.Y*vector2.Y)+(vector1.Z*vector2.Z);
+    }
+
+    public static double angleBetween(Point3D vector1, Point3D vector2, Point3D anchor1, Point3D anchor2)
+    {
+        return Math.toDegrees(Math.acos(dotProduct(vector1,vector2, anchor1, anchor2)/((vectorMag(vector1.X,vector1.Y,vector1.Z)) * vectorMag(vector2.X,vector2.Y,vector2.Z))));
+    }
+
+    public static void renderLine(double[][] vertices, int[][] faces, int[][]surfaceNormals, LineBase.RGBColor color, int[][][]fb)
+    {
+        LineBase lb = new Lines();
+        for(int i = 0; i < faces[0].length;i++)
+        {
+            Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]],vertices[1][surfaceNormals[0][i]],vertices[2][surfaceNormals[0][i]]);
+            Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
+            Point3D vertex2 = new Point3D(0,0,-1);
+            Point3D anchor2 = new Point3D(0,0,0);
+            if(angleBetween(vertex1,vertex2,anchor1,anchor2) < 90) {
+                for (int j = 0; j < faces.length - 1; j++) {
+                    lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], fb, color, color);
+                }
+            }
+        }
+    }
+    public static void renderLine(double[][] vertices, int[][] faces, int[][]surfaceNormals, LineBase.RGBColor[] color, int[][][]fb)
+    {
+        LineBase lb = new Lines();
+
+
+        for(int i = 0; i < faces[0].length;i++)
+        {
+            Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]],vertices[1][surfaceNormals[0][i]],vertices[2][surfaceNormals[0][i]]);
+            Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
+            Point3D vertex2 = new Point3D(0,0,-1);
+            Point3D anchor2 = new Point3D(0,0,0);
+            if(angleBetween(vertex1,vertex2,anchor1,anchor2) < 90) {
+                for (int j = 0; j < faces.length - 1; j++) {
+
+                    lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], fb, color[faces[j][i]], color[faces[j + 1][i]]);
+                }
+            }
+        }
+    }
+
+    public static void main(String [] args) throws IOException {
+
+        // Need to change how I input values into my master Matrix
+        File file = new File("C:\\Users\\andre\\IdeaProjects\\Rotation-HiddenSurfaceRemoval\\src\\Cube\\cube.txt");
         Scanner scan = new Scanner(file);
         String line = scan.nextLine();
         int numVertices = Integer.parseInt(line.split(" ")[1]);
         double[][] vertices = new double[4][numVertices];
-        LineBase.RGBColor[] colorz = new LineBase.RGBColor[12];
+        LineBase.RGBColor[] colorz = new LineBase.RGBColor[numVertices];
         for(int i = 0; i < numVertices; i++)
         {
-            String[] in = scan.nextLine().split(",");
+            String[] in = scan.nextLine().split(", ");
             vertices[0][i] = Double.parseDouble(in[0]);
             vertices[1][i] = Double.parseDouble(in[1]);
             vertices[2][i] = Double.parseDouble(in[2]);
@@ -153,17 +238,17 @@ public class CubeMain {
         }
         line = scan.nextLine();
         int numEdges = Integer.parseInt(line.split(" ")[1]);
-        Integer[][] edges = new Integer[2][numEdges];
+        //Integer[][] edges = new Integer[2][numEdges];
         for(int i = 0; i < numEdges; i++)
         {
             String[] in = scan.nextLine().split(", ");
-            edges[0][i] = Integer.parseInt(in[0]);
-            edges[1][i] = Integer.parseInt(in[1]);
+            //edges[0][i] = Integer.parseInt(in[0]);
+            //edges[1][i] = Integer.parseInt(in[1]);
 
         }
         line = scan.nextLine();;
         int numFaces = Integer.parseInt(line.split(" ")[1]);
-        Integer[][] faces = new Integer[5][numFaces];
+        int[][] faces = new int[5][numFaces];
         for(int i = 0; i <numFaces; i++ )
         {
             line = scan.nextLine();
@@ -174,6 +259,81 @@ public class CubeMain {
             faces[3][i] = Integer.parseInt(corners[4]);
             faces[4][i] = Integer.parseInt(corners[5]);
         }
+
+        double[][] surfaceCentroids = new double[4][numFaces];
+        double[][] surfaceNormals = new double[4][numFaces];
+        for(int i = 0; i < numFaces;i++)
+        {
+            Point3D surfaceNormal = crossProduct(new Point3D(vertices[0][faces[0][i]],vertices[1][faces[0][i]], vertices[2][faces[0][i]]),
+                    new Point3D(vertices[0][faces[2][i]], vertices[1][faces[2][i]], vertices[2][faces[2][i]]),
+                    new Point3D(vertices[0][faces[1][i]],vertices[1][faces[1][i]], vertices[2][faces[1][i]]));
+
+            surfaceNormals[0][i] = surfaceNormal.X;
+            surfaceNormals[1][i] = surfaceNormal.Y;
+            surfaceNormals[2][i] = surfaceNormal.Z;
+            surfaceNormals[3][i] = 1;
+
+            double sumx = 0;
+            double sumy = 0;
+            double sumz = 0;
+            for(int j = 0; j < faces.length -1; j++)
+            {
+                sumx += vertices[0][faces[j][i]];
+                sumy += vertices[1][faces[j][i]];
+                sumz += vertices[2][faces[j][i]];
+            }
+
+            surfaceCentroids[0][i] = sumx/(faces.length-1);
+            surfaceCentroids[1][i] = sumy/(faces.length-1);
+            surfaceCentroids[2][i] = sumz/(faces.length-1);
+            surfaceCentroids[3][i] = 1;
+        }
+        double[][] everythingCube = new double[4][numVertices + (numFaces*2) + 1];
+        for(int i = 0; i < vertices[0].length; i++)
+        {
+            everythingCube[0][i] = vertices[0][i];
+            everythingCube[1][i] = vertices[1][i];
+            everythingCube[2][i] = vertices[2][i];
+            everythingCube[3][i] = vertices[3][i];
+        }
+        for (int i = vertices[0].length; i < surfaceNormals[0].length+vertices[0].length; i++)
+        {
+            everythingCube[0][i] = surfaceNormals[0][i-vertices[0].length];
+            everythingCube[1][i] = surfaceNormals[1][i-vertices[0].length];
+            everythingCube[2][i] = surfaceNormals[2][i-vertices[0].length];
+            everythingCube[3][i] = surfaceNormals[3][i-vertices[0].length];
+        }
+        for(int i = surfaceNormals[0].length+vertices[0].length; i < everythingCube[0].length-1; i++)
+        {
+            everythingCube[0][i] = surfaceCentroids[0][i-(surfaceNormals[0].length+vertices[0].length)];
+            everythingCube[1][i] = surfaceCentroids[1][i-(surfaceNormals[0].length+vertices[0].length)];
+            everythingCube[2][i] = surfaceCentroids[2][i-(surfaceNormals[0].length+vertices[0].length)];
+            everythingCube[3][i] = surfaceCentroids[3][i-(surfaceNormals[0].length+vertices[0].length)];
+        }
+
+
+        double centerX = 0;
+        double centerY = 0;
+        double centerZ = 0;
+        for(int i = 0; i < vertices[0].length; i++)
+        {
+            centerX += vertices[0][i];
+            centerY += vertices[1][i];
+            centerZ += vertices[2][i];
+        }
+        everythingCube[0][everythingCube[0].length-1] = centerX / vertices[0].length;
+        everythingCube[1][everythingCube[1].length-1] = centerY / vertices[0].length;
+        everythingCube[2][everythingCube[2].length-1] = centerZ / vertices[0].length;
+        everythingCube[3][everythingCube[3].length-1] = 1;
+        for(int i = 0; i < everythingCube.length; i++)
+        {
+            for(int j = 0; j < everythingCube[0].length; j++)
+            {
+                System.out.print(everythingCube[i][j] + ", ");
+            }
+            System.out.println();
+        }
+
 
 //        for(int i = 0; i < edges.length; i++)
 //        {
@@ -191,55 +351,24 @@ public class CubeMain {
 //            }
 //            System.out.println();
 //        }
-        LineBase lb = new Lines();
-
-        int framebuffer[][][] = new int[3][512][512];
-
-        double[][] modificationMatrix;
-        double[][] temp;
-        double[][] scaleCube = scale(100,100,100);
-        double[][] rotateCubeX = rotateX(30);
-        double [][] rotateCubeY = rotateY(45);
-        double[][] rotateCubeZ = rotateZ(60);
-        double[][] translation = translate(200,200,0);
-
-        System.out.println(Arrays.deepToString(vertices) + "\n");
-
-        temp = WinogradMethod(scaleCube, vertices);
-
-        System.out.println(Arrays.deepToString(temp) + "\n");
-
-        modificationMatrix = WinogradMethod(rotateCubeX,scaleCube);
-
-        System.out.println(Arrays.deepToString(scaleCube) + "\n");
-        System.out.println(Arrays.deepToString(modificationMatrix));
-
-        temp = modificationMatrix;
-        modificationMatrix = WinogradMethod(rotateCubeY,temp);
-        temp = modificationMatrix;
-        modificationMatrix = WinogradMethod(rotateCubeZ,temp);
-        temp = modificationMatrix;
-        modificationMatrix = WinogradMethod(translation, temp);
-        double[][] result = WinogradMethod(modificationMatrix, vertices);
-
-        for(int i = 0; i < result.length;i++)
+        int[][] normalsCentroids= new int[2][numFaces];
+        for(int i = 0; i < faces[0].length; i++)
         {
-            for(int j = 0; j < result[0].length;j++)
-            {
-                System.out.print(result[i][j] + ", ");
-            }
-            System.out.println();
+            normalsCentroids[0][i] = i + vertices[0].length;
+            normalsCentroids[1][i] = i + vertices[0].length + faces[0].length;
         }
 
-        try {
-            for(int i = 0; i < edges[0].length; i++) {
-                lb.BresenhamFormRGB((int)result[0][edges[0][i]],(int)result[1][edges[0][i]],(int)result[0][edges[1][i]],(int)result[1][edges[1][i]],framebuffer,colorz[i],colorz[i]);
-            }
-            LineBase.ImageWriteRGB(framebuffer, "cube.png");
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
+        int[][][] framebuffer = new int[3][512][512];
+        double frambufferlength = (double)framebuffer[0].length/2;
+        System.out.println(frambufferlength);
+        double[][] FinalMatrix = rotation(everythingCube,new Point3D(1,1,1), 57);
+        double[][] temp = WinogradMethod(scale(100,100,100), FinalMatrix);
+        double[][] result = WinogradMethod(translate((double)framebuffer[0].length/2, (double)framebuffer[0].length/2,0 ), temp);
+        renderLine(result, faces, normalsCentroids, colorz, framebuffer);
+        LineBase.ImageWriteRGB(framebuffer,"cube.png");
+        renderLine(result,normalsCentroids, normalsCentroids, new LineBase.RGBColor(255,255,255), framebuffer);
+        LineBase.ImageWriteRGB(framebuffer,"cube1.png");
+
     }
 
 
