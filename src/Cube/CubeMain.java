@@ -202,17 +202,153 @@ public class CubeMain {
     {
         LineBase lb = new Lines();
 
+        try {
+            for (int i = 0; i < faces[0].length; i++) {
+                Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]], vertices[1][surfaceNormals[0][i]], vertices[2][surfaceNormals[0][i]]);
+                Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
+                Point3D vertex2 = new Point3D(0, 0, -1);
+                Point3D anchor2 = new Point3D(0, 0, 0);
+                if (angleBetween(vertex1, vertex2, anchor1, anchor2) < 90) {
+                    for (int j = 0; j < faces.length - 1; j++) {
 
-        for(int i = 0; i < faces[0].length;i++)
+                        lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], fb, color[faces[j][i]], color[faces[j + 1][i]]);
+                    }
+                }
+            }
+        }
+        catch (IndexOutOfBoundsException E )
         {
-            Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]],vertices[1][surfaceNormals[0][i]],vertices[2][surfaceNormals[0][i]]);
-            Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
-            Point3D vertex2 = new Point3D(0,0,-1);
-            Point3D anchor2 = new Point3D(0,0,0);
-            if(angleBetween(vertex1,vertex2,anchor1,anchor2) < 90) {
-                for (int j = 0; j < faces.length - 1; j++) {
+            System.out.println("out of frame buffer");
+        }
+    }
+    //Create a shadebuffer for shading, draw and shade the face on the shadebuffer and transfer it to the normal frame buffer
+    //create a different shadebuffer for each face using the dimensions of the face
+    public static void renderShadedFaceGaraud(double[][] vertices, int[][] faces, int[][]surfaceNormals, LineBase.RGBColor[] color, int[][][]fb)
+    {
+        LineBase lb = new Lines();
+        int[][][] shadeBuffer = new int[3][fb[0].length][fb[0][0].length];
+        //initialize every space in shadebuffer to an illegal color value (-1)
 
-                    lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], fb, color[faces[j][i]], color[faces[j + 1][i]]);
+
+        try {
+            for (int i = 0; i < faces[0].length; i++) {
+                for(int l = 0; l < shadeBuffer.length; l++)
+                {
+                    for(int j = 0; j < shadeBuffer[0].length; j++)
+                    {
+                        for(int k = 0; k < shadeBuffer[0][0].length; k++)
+                        {
+                            shadeBuffer[l][j][k] = -1;
+                        }
+                    }
+                }
+                Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]], vertices[1][surfaceNormals[0][i]], vertices[2][surfaceNormals[0][i]]);
+                Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
+                Point3D vertex2 = new Point3D(0, 0, -1);
+                Point3D anchor2 = new Point3D(0, 0, 0);
+                if (angleBetween(vertex1, vertex2, anchor1, anchor2) < 90) {
+                    //draw the face into the shade buffer
+                    for (int j = 0; j < faces.length - 1; j++) {
+                        lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], shadeBuffer, color[faces[j][i]], color[faces[j + 1][i]]);
+                    }
+                    //shade in the face in the shadebuffer
+                    for(int j = 0; j < shadeBuffer[0].length; j++)
+                    {
+                        int left = 0;
+                        int right = 0;
+
+                        for (int k = 0; k < shadeBuffer[0][0].length; k++){
+                            if (shadeBuffer[0][j][k] != -1) {
+                                    left = k;
+                            }
+                        }
+                        for (int k = shadeBuffer[0][0].length-1; k > 0; k--) {
+                            if (shadeBuffer[0][j][k] != -1) {
+                                    right = k;
+                            }
+                        }
+                        LineBase.RGBColor start = new LineBase.RGBColor(shadeBuffer[0][j][left],shadeBuffer[1][j][left],shadeBuffer[2][j][left]);
+                        LineBase.RGBColor end = new LineBase.RGBColor(shadeBuffer[0][j][right],shadeBuffer[1][j][right],shadeBuffer[2][j][right]);
+                        lb.BresenhamFormRGB(left, j, right, j, shadeBuffer,start, end);
+                    }
+                    frameTransfer(fb, shadeBuffer);
+                }
+            }
+        }
+        catch (IndexOutOfBoundsException E )
+        {
+            System.out.println("out of frame buffer");
+        }
+    }
+    public static void renderShadedFacePerFace(double[][] vertices, int[][] faces, int[][]surfaceNormals, LineBase.RGBColor[] color, int[][][]fb)
+    {
+        LineBase lb = new Lines();
+
+
+        try {
+            for (int i = 0; i < faces[0].length; i++) {
+                int[][][] shadeBuffer = new int[3][fb[0].length][fb[0][0].length];
+                //initialize every space in shadebuffer to an illegal color value (-1)
+                for(int l = 0; l < shadeBuffer.length; l++)
+                {
+                    for(int j = 0; j < shadeBuffer[0].length; j++)
+                    {
+                        for(int k = 0; k < shadeBuffer[0][0].length; k++)
+                        {
+                            shadeBuffer[l][j][k] = -1;
+                        }
+                    }
+                }
+                Point3D vertex1 = new Point3D(vertices[0][surfaceNormals[0][i]], vertices[1][surfaceNormals[0][i]], vertices[2][surfaceNormals[0][i]]);
+                Point3D anchor1 = new Point3D(vertices[0][surfaceNormals[1][i]], vertices[1][surfaceNormals[1][i]], vertices[2][surfaceNormals[1][i]]);
+                Point3D vertex2 = new Point3D(0, 0, -1);
+                Point3D anchor2 = new Point3D(0, 0, 0);
+                if (angleBetween(vertex1, vertex2, anchor1, anchor2) < 90) {
+                    //draw the face into the shade buffer
+                    for (int j = 0; j < faces.length - 1; j++) {
+                        lb.BresenhamFormRGB((int) vertices[0][faces[j][i]], (int) vertices[1][faces[j][i]], (int) vertices[0][faces[j + 1][i]], (int) vertices[1][faces[j + 1][i]], shadeBuffer, color[faces[j][i]], color[faces[j + 1][i]]);
+                    }
+                    //shade in the face in the shadebuffer
+                    for(int j = 0; j < shadeBuffer[0].length; j++)
+                    {
+                        int left = 0;
+                        int right = 0;
+
+                        for (int k = 0; k < shadeBuffer[0][0].length; k++){
+                            if (shadeBuffer[0][j][k] != -1) {
+                                left = k;
+                            }
+                        }
+                        for (int k = shadeBuffer[0][0].length-1; k > 0; k--) {
+                            if (shadeBuffer[0][j][k] != -1) {
+                                right = k;
+                            }
+                        }
+                        if (left != 0 && right != 0) {
+                            lb.BresenhamFormRGB(left, j, right, j, shadeBuffer, color[faces[0][i]], color[faces[0][i]]);
+                        }
+                    }
+                    frameTransfer(fb, shadeBuffer);
+                }
+            }
+        }
+        catch (IndexOutOfBoundsException E )
+        {
+            System.out.println("out of frame buffer");
+        }
+    }
+    public static void frameTransfer(int[][][] fb, int[][][]sb)
+    {
+        for(int i = 0; i < sb.length; i++)
+        {
+            for(int j = 0; j < sb[0].length; j++)
+            {
+                for(int k = 0; k < sb[0][0].length; k++)
+                {
+                    if(sb[i][j][k] != -1)
+                    {
+                        fb[i][j][k] = sb[i][j][k];
+                    }
                 }
             }
         }
@@ -246,7 +382,7 @@ public class CubeMain {
             //edges[1][i] = Integer.parseInt(in[1]);
 
         }
-        line = scan.nextLine();;
+        line = scan.nextLine();
         int numFaces = Integer.parseInt(line.split(" ")[1]);
         int[][] faces = new int[5][numFaces];
         for(int i = 0; i <numFaces; i++ )
@@ -357,17 +493,65 @@ public class CubeMain {
             normalsCentroids[0][i] = i + vertices[0].length;
             normalsCentroids[1][i] = i + vertices[0].length + faces[0].length;
         }
-
+        Point3D axisOfRotation = new Point3D(1,1,1);
         int[][][] framebuffer = new int[3][512][512];
         double frambufferlength = (double)framebuffer[0].length/2;
         System.out.println(frambufferlength);
-        double[][] FinalMatrix = rotation(everythingCube,new Point3D(1,1,1), 57);
-        double[][] temp = WinogradMethod(scale(100,100,100), FinalMatrix);
+        double[][] FinalMatrix1 = rotation(everythingCube,axisOfRotation, 57);
+        double[][] FinalMatrix2 = rotation(everythingCube,axisOfRotation, 92);
+        double[][] temp = WinogradMethod(scale(100,100,100), FinalMatrix1);
         double[][] result = WinogradMethod(translate((double)framebuffer[0].length/2, (double)framebuffer[0].length/2,0 ), temp);
-        renderLine(result, faces, normalsCentroids, colorz, framebuffer);
-        LineBase.ImageWriteRGB(framebuffer,"cube.png");
-        renderLine(result,normalsCentroids, normalsCentroids, new LineBase.RGBColor(255,255,255), framebuffer);
-        LineBase.ImageWriteRGB(framebuffer,"cube1.png");
+
+        //Original cube rotation code
+//        double[][] FinalMatrix = rotation(everythingCube,axisOfRotation, 57);
+//        double[][] temp = WinogradMethod(scale(100,100,100), FinalMatrix);
+//        double[][] result = WinogradMethod(translate((double)framebuffer[0].length/2, (double)framebuffer[0].length/2,0 ), temp);
+        temp = result;
+        result = WinogradMethod(scale(0.7,0.7,0.7), temp);
+        double[][] squareLeft = WinogradMethod(translate(-50,0,0), result);
+        temp = WinogradMethod(scale(100,100,100), FinalMatrix2);
+        result = WinogradMethod(translate((double)framebuffer[0].length/2, (double)framebuffer[0].length/2,0 ), temp);
+        double[][] squareRight = WinogradMethod(translate(150,0,0), result);
+
+
+        //Original Cube Render Code
+        //squareRight = WinogradMethod(scale(50,50,50), temp);
+//        renderLine(result, faces, normalsCentroids, colorz, framebuffer);
+//        LineBase.ImageWriteRGB(framebuffer,"cube.png");
+//        renderLine(result,normalsCentroids, normalsCentroids, new LineBase.RGBColor(255,255,255), framebuffer);
+//        LineBase.ImageWriteRGB(framebuffer,"cube1.png");
+        double[][] result1 = squareLeft;
+        double[][] result2 = squareRight;
+        for(int i = 0; i < 570; i++)
+        {
+            framebuffer = new int[3][512][512];
+            result1 = rotation(result1, axisOfRotation, 1);
+            result2 = rotation(result2, axisOfRotation, 1);
+
+            renderShadedFacePerFace(result1, faces, normalsCentroids, colorz,
+                    framebuffer);
+            renderShadedFaceGaraud(result2, faces, normalsCentroids, colorz, framebuffer);
+
+            try
+            {
+                if(i < 10)
+                {
+                    Utilities.ImageUtilities.ImageWriteRGB(framebuffer, "cube00" + i + ".png");
+                }
+                else if(i < 100)
+                {
+                    Utilities.ImageUtilities.ImageWriteRGB(framebuffer, "cube0" + i + ".png");
+                }
+                else
+                {
+                    Utilities.ImageUtilities.ImageWriteRGB(framebuffer, "cube" + i + ".png");
+                }
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
 
     }
 
